@@ -1,0 +1,13 @@
+rhoT :  2.7 # gram/cm^3
+omegap : 15.
+alattice : 4.046 # Angstrom
+A : 27
+Z : 13
+E_gap: 0.0
+Zion: 3.0
+ombar: 0.015 # average phonon frequency in eV
+Avec : [27.]
+lattice_spacing : 4.046
+cLAkms: 6.2 # need check for ref
+atoms: ['Al']
+unitcell: {'Al':{'A': 27., 'mult':1}}
