@@ -57,9 +57,9 @@ def _R_multiphonons_prefactor(self, sigman, spin_dependent=False, scalar_dm=Fals
     if not spin_dependent:
         return spin_independent_factor
     elif scalar_dm:
-        return spin_independent_factor * 32 * N_spin2 * (self.muxnucleon)**2 / mX**2
+        return spin_independent_factor * 32 * N_spin2 * (self.muxnucleon)**2 / self.mX**2
     else:
-        return spin_independent_factor * 192 * 0.25 * N_spin2 * (self.muxnucleon)**2 / mX**2
+        return spin_independent_factor * 192 * 0.25 * N_spin2 * (self.muxnucleon)**2 / self.mX**2
 
 
 def sigma_multiphonons(self, threshold, dark_photon=False):
@@ -239,8 +239,8 @@ def _dR_domega_multiphonons_no_single(self, omega, sigman=1e-38, dark_photon=Fal
                      formfactorsquared*self.etav((qrange/(2*self.mX)) + omega/qrange) * qrange
 
         impulse_approx_part = np.trapz(dR_domega_dq, qrange)
-
-    return self._R_multiphonons_prefactor(sigman, N_spin2=N_spin2)*(multiph_expansion_part + impulse_approx_part)
+    
+    return self._R_multiphonons_prefactor(sigman, spin_dependent=spin_dependent, scalar_dm=scalar_dm, N_spin2=N_spin2)*(multiph_expansion_part + impulse_approx_part)
 
 
 ############################################################################################
