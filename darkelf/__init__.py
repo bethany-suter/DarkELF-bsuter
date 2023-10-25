@@ -56,7 +56,8 @@ class darkelf(object):
         # mass of atoms in unit cell
         self.Avec = np.array([self.unitcell[ai]['A'] for ai in self.atoms])
         self.Amult = np.array([self.unitcell[ai]['mult'] for ai in self.atoms])
-        self.isotope_frac_vec = np.array([self.unitcell[ai]['isotope_frac'] for ai in self.atoms])
+        if np.isin(list(self.unitcell.keys()), 'isotope_frac').any():
+            self.isotope_frac_vec = np.array([self.unitcell[ai]['isotope_frac'] for ai in self.atoms])
 
         # !TL - these will become a vector more generally
         # nucleon mass used for Migdal calculation, regular nuclear recoils

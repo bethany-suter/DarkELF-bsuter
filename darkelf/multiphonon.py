@@ -49,7 +49,7 @@ def debye_waller(self, q):
         print("Warning! debye_waller function given invalid quantity ")
         return 0.0
 
-def _R_multiphonons_prefactor(self, sigman, spin_dependent=False, scalar_dm=False, g_chi=1.0, N_spin2=0.25):
+def _R_multiphonons_prefactor(self, sigman, spin_dependent=False, scalar_dm=False, N_spin2=0.25):
     # Input sigman in cm^2; output is the rate pre-factor in cm^2
 
     totalmass = self.mp * sum(self.Amult*self.Avec)
@@ -57,9 +57,9 @@ def _R_multiphonons_prefactor(self, sigman, spin_dependent=False, scalar_dm=Fals
     if not spin_dependent:
         return spin_independent_factor
     elif scalar_dm:
-        return spin_independent_factor * 512 * N_spin2 * np.pi**2 * (self.muxnucleon)**2 / mX**2
+        return spin_independent_factor * 32 * N_spin2 * (self.muxnucleon)**2 / mX**2
     else:
-        return spin_independent_factor * 3072 * 0.25 * N_spin2 * np.pi**2 * (self.muxnucleon)**2 / mX**2
+        return spin_independent_factor * 192 * 0.25 * N_spin2 * (self.muxnucleon)**2 / mX**2
 
 
 def sigma_multiphonons(self, threshold, dark_photon=False):
@@ -82,29 +82,27 @@ def sigma_multiphonons(self, threshold, dark_photon=False):
         return float('inf')
     
     
-def sigma_multiphonons_spin_dependent(self, threshold, g_chi=1.0, N_spin2=0.25, scalar_dm=False):
+def sigma_multiphonons_spin_dependent(self, threshold, N_spin2=0.25, scalar_dm=False):
     '''
     returns DM-proton cross-section [cm^2] corresponding to 3 events/kg/yr assuming a spin dependent interaction
     Inputs
     ------
     threshold: float
         experimental threshold, in eV
-    g_chi: float
-        The coupling constant for the dark matter. Assumed to be 1
     N_spin2: float
         The expectation value of the spin squared <S_N^2> of the atom
     scalar_dm: Bool
         If set to True, a scalar dm will be assumed. Otherwise, fermionic dm will be assumed.        
     '''
     
-    rate = self.R_multiphonons_no_single(threshold, sigman=1e-38, spin_dependent=True, scalar_dm=scalar_dm, g_chi=g_chi, N_spin2=N_spin2)
+    rate = self.R_multiphonons_no_single(threshold, sigman=1e-38, spin_dependent=True, scalar_dm=scalar_dm, N_spin2=N_spin2)
     if rate != 0:
         return (3.0*1e-38)/rate
     else:
         return float('inf')
 
 
-def R_multiphonons_no_single(self, threshold, sigman=1e-38, dark_photon=False, spin_dependent=False, scalar_dm=False, g_chi=1.0, N_spin2=0.25):
+def R_multiphonons_no_single(self, threshold, sigman=1e-38, dark_photon=False, spin_dependent=False, scalar_dm=False, N_spin2=0.25):
     """
     Returns rate for DM scattering with a harmonic lattice, including multiphonon contributions but excluding the coherent single phonon contribution
 
@@ -131,14 +129,14 @@ def R_multiphonons_no_single(self, threshold, sigman=1e-38, dark_photon=False, s
         # For better precision, we use linear sampling for omega < max phonon energy and log sampling for omega > max phonon energy.
         if(threshold<self.dos_omega_range[-1]):
             omegarange_linear=np.linspace(threshold,np.min([self.dos_omega_range[-1],self.omegaDMmax]), npoints)
-            dR_linear=[self._dR_domega_multiphonons_no_single(omega, sigman=sigman, dark_photon=dark_photon, spin_dependent=spin_dependent, scalar_dm=scalar_dm, g_chi=g_chi, N_spin2=N_spin2) for omega in omegarange_linear]
+            dR_linear=[self._dR_domega_multiphonons_no_single(omega, sigman=sigman, dark_photon=dark_photon, spin_dependent=spin_dependent, scalar_dm=scalar_dm, N_spin2=N_spin2) for omega in omegarange_linear]
             R_linear=np.trapz(dR_linear, omegarange_linear)
         else:
             R_linear=0.0
         if(self.omegaDMmax>self.dos_omega_range[-1]):
             omegarange_log=np.logspace(np.max([np.log10(self.dos_omega_range[-1]),np.log10(threshold)]),\
                                      np.log10(self.omegaDMmax), npoints)
-            dR_log=[self._dR_domega_multiphonons_no_single(omega, sigman=sigman, dark_photon=dark_photon, spin_dependent=spin_dependent, scalar_dm=scalar_dm, g_chi=g_chi, N_spin2=N_spin2) for omega in omegarange_log]
+            dR_log=[self._dR_domega_multiphonons_no_single(omega, sigman=sigman, dark_photon=dark_photon, spin_dependent=spin_dependent, scalar_dm=scalar_dm, N_spin2=N_spin2) for omega in omegarange_log]
             R_log=np.trapz(dR_log, omegarange_log)
         else:
             R_log=0
@@ -149,7 +147,7 @@ def R_multiphonons_no_single(self, threshold, sigman=1e-38, dark_photon=False, s
 
 # Multiphonon_expansion term
 
-def _dR_domega_multiphonons_no_single(self, omega, sigman=1e-38, dark_photon=False, spin_dependent=False, scalar_dm=False, g_chi=1.0, N_spin2=0.25):
+def _dR_domega_multiphonons_no_single(self, omega, sigman=1e-38, dark_photon=False, spin_dependent=False, scalar_dm=False, N_spin2=0.25):
 
     '''dR_domega single-phonon coherent removed'''
     if(dark_photon): # check if effective charges are loaded
@@ -242,7 +240,7 @@ def _dR_domega_multiphonons_no_single(self, omega, sigman=1e-38, dark_photon=Fal
 
         impulse_approx_part = np.trapz(dR_domega_dq, qrange)
 
-    return self._R_multiphonons_prefactor(sigman, g_chi=g_chi, N_spin2=N_spin2)*(multiph_expansion_part + impulse_approx_part)
+    return self._R_multiphonons_prefactor(sigman, N_spin2=N_spin2)*(multiph_expansion_part + impulse_approx_part)
 
 
 ############################################################################################
