@@ -49,20 +49,14 @@ def debye_waller(self, q):
         print("Warning! debye_waller function given invalid quantity ")
         return 0.0
 
-def _R_multiphonons_prefactor(self, sigman, spin_dependent=False, scalar_dm=False, N_spin2=0.25):
+def _R_multiphonons_prefactor_SI(self, sigman):
     # Input sigman in cm^2; output is the rate pre-factor in cm^2
 
     totalmass = self.mp * sum(self.Amult*self.Avec)
-    spin_independent_factor = sigman*((1/totalmass)* (self.rhoX*self.eVcm**3)/(2*self.mX*(self.muxnucleon)**2))*((1/self.eVcm**2)*(self.eVtoInvYr/self.eVtokg))
-    if not spin_dependent:
-        return spin_independent_factor
-    elif scalar_dm:
-        return spin_independent_factor * 32 * N_spin2 * (self.muxnucleon)**2 / self.mX**2
-    else:
-        return spin_independent_factor * 192 * 0.25 * N_spin2 * (self.muxnucleon)**2 / self.mX**2
+    return sigman*((1/totalmass)* (self.rhoX*self.eVcm**3)/(2*self.mX*(self.muxnucleon)**2))*((1/self.eVcm**2)*(self.eVtoInvYr/self.eVtokg))
 
 
-def sigma_multiphonons(self, threshold, dark_photon=False):
+def sigma_multiphonons_SI(self, threshold, dark_photon=False):
     '''
     returns DM-proton cross-section [cm^2] corresponding to 3 events/kg/yr
     Inputs
@@ -75,34 +69,14 @@ def sigma_multiphonons(self, threshold, dark_photon=False):
     if dark_photon:
       assert self.fd_loaded, "Error: effective charge not loaded. Cannot perform calculation for dark photon mediator."
 
-    rate = self.R_multiphonons_no_single(threshold, dark_photon=dark_photon) + self.R_single_phonon(threshold, dark_photon=dark_photon)
+    rate = self.R_multiphonons_no_single_SI(threshold, dark_photon=dark_photon) + self.R_single_phonon(threshold, dark_photon=dark_photon)
     if rate != 0:
         return (3.0*1e-38)/rate
     else:
         return float('inf')
 
 
-def sigma_multiphonons_spin_dependent(self, threshold, N_spin2=0.25, scalar_dm=False):
-    '''
-    returns DM-proton cross-section [cm^2] corresponding to 3 events/kg/yr assuming a spin dependent interaction
-    Inputs
-    ------
-    threshold: float
-        experimental threshold, in eV
-    N_spin2: float
-        The expectation value of the spin squared <S_N^2> of the atom
-    scalar_dm: Bool
-        If set to True, a scalar dm will be assumed. Otherwise, fermionic dm will be assumed.
-    '''
-
-    rate = self.R_multiphonons_no_single(threshold, sigman=1e-38, spin_dependent=True, scalar_dm=scalar_dm, N_spin2=N_spin2)
-    if rate != 0:
-        return (3.0*1e-38)/rate
-    else:
-        return float('inf')
-
-
-def R_multiphonons_no_single(self, threshold, sigman=1e-38, dark_photon=False, spin_dependent=False, scalar_dm=False, N_spin2=0.25):
+def R_multiphonons_no_single_SI(self, threshold, sigman=1e-38, dark_photon=False):
     """
     Returns rate for DM scattering with a harmonic lattice, including multiphonon contributions but excluding the coherent single phonon contribution
 
@@ -129,14 +103,16 @@ def R_multiphonons_no_single(self, threshold, sigman=1e-38, dark_photon=False, s
         # For better precision, we use linear sampling for omega < max phonon energy and log sampling for omega > max phonon energy.
         if(threshold<self.dos_omega_range[-1]):
             omegarange_linear=np.linspace(threshold,np.min([self.dos_omega_range[-1],self.omegaDMmax]), npoints)
-            dR_linear=[self._dR_domega_multiphonons_no_single(omega, sigman=sigman, dark_photon=dark_photon, spin_dependent=spin_dependent, scalar_dm=scalar_dm, N_spin2=N_spin2) for omega in omegarange_linear]
+            # dR_linear=[self._dR_domega_multiphonons_no_single_SI(omega, sigman=sigman, dark_photon=dark_photon) for omega in omegarange_linear]
+            dR_linear = list(map(lambda omega: self._dR_domega_multiphonons_no_single_SI(omega, sigman=sigman, dark_photon=dark_photon), omegarange_linear))
             R_linear=np.trapz(dR_linear, omegarange_linear)
         else:
             R_linear=0.0
         if(self.omegaDMmax>self.dos_omega_range[-1]):
             omegarange_log=np.logspace(np.max([np.log10(self.dos_omega_range[-1]),np.log10(threshold)]),\
                                      np.log10(self.omegaDMmax), npoints)
-            dR_log=[self._dR_domega_multiphonons_no_single(omega, sigman=sigman, dark_photon=dark_photon, spin_dependent=spin_dependent, scalar_dm=scalar_dm, N_spin2=N_spin2) for omega in omegarange_log]
+            # dR_log=[self._dR_domega_multiphonons_no_single_SI(omega, sigman=sigman, dark_photon=dark_photon) for omega in omegarange_log]
+            dR_log = list(map(lambda omega: self._dR_domega_multiphonons_no_single_SI(omega, sigman=sigman, dark_photon=dark_photon), omegarange_log))
             R_log=np.trapz(dR_log, omegarange_log)
         else:
             R_log=0
@@ -144,11 +120,7 @@ def R_multiphonons_no_single(self, threshold, sigman=1e-38, dark_photon=False, s
         return R_linear+R_log
 
 
-
-# Multiphonon_expansion term
-
-def _dR_domega_multiphonons_no_single(self, omega, sigman=1e-38, dark_photon=False, spin_dependent=False, scalar_dm=False, N_spin2=0.25):
-
+def _dR_domega_multiphonons_no_single_SI(self, omega, sigman=1e-38, dark_photon=False, npoints=200):
     '''dR_domega single-phonon coherent removed'''
     if(dark_photon): # check if effective charges are loaded
         assert self.fd_loaded, "Error: effective charge not loaded. Cannot perform calculation for dark photon mediator."
@@ -156,173 +128,42 @@ def _dR_domega_multiphonons_no_single(self, omega, sigman=1e-38, dark_photon=Fal
     if omega > self.omegaDMmax:
         return 0
 
-    ###################################################
-    # Contribution to the rate from phase space where we use multiphonon expansion with incoherent approximation
-
     if (omega > self.dos_omega_range[-1]):
-        qmin = self.qmin(omega)
-    elif spin_dependent:
         qmin = self.qmin(omega)
     else: ## For q<qBZ and omega<max phonon energy, we use the single phonon rate.
         qmin = max(self.qmin(omega), self.qBZ)
 
-    # for q>q_IA_cut, the impulse approximation is used
-    q_IA_cut = max([ 2 * sqrt(2*self.Avec[i]*self.mp*self.omega_bar[i]) for i in range(len(self.atoms))])
-
-    qmax = min(self.qmax(omega), q_IA_cut)
-
-    if qmin >= qmax:
-        multiph_expansion_part = 0
-    else:
-        npoints = 100
-        qrange = np.linspace(qmin, qmax, npoints)
-
-        # Choice of effective coupling
-        if dark_photon:
-            fd = np.array([self.fd_darkphoton[i](qrange) for i in range(len(self.atoms))])*sqrt(self.debye_waller(qrange)).T
-        elif spin_dependent:
-            fd = np.tile(np.array([self.isotope_frac_vec]),(npoints, 1)).T*sqrt(self.debye_waller(qrange)).T
-        else:
-            fd = np.tile(self.Avec,(npoints, 1)).T*sqrt(self.debye_waller(qrange)).T
-
-        if spin_dependent:
-            formfactorsquared = self.Fmed_nucleus_spin_dependent(qrange, scalar_dm)**2
-        else:
-            formfactorsquared = self.Fmed_nucleus(qrange)**2
-
-        otherpart = np.array([np.zeros(npoints) for i in range(len(self.atoms))])
-        for i in range(len(self.atoms)):
-            for n in range(1, len(self.phonon_Fn[i])):
-                # Debye-Waller included in f_d
-                qpart = qrange**(2*n + 1)
-                # !TL - included multiplicity factor here!
-                otherpart[i] += self.Amult[i] * (1/(2*self.Avec[i]*self.mp))**n * qpart * self.Fn_interpolations[i][n](omega)
-
-        # add contributions from all atoms
-        dR_domega_dq = np.sum(fd**2*otherpart, axis = 0)*formfactorsquared*self.etav((qrange/(2*self.mX)) + omega/qrange)
-        multiph_expansion_part = np.trapz(dR_domega_dq, qrange)
-
-    ###################################################
-    # Contribution to the rate from phase space where we use the Impulse Approximation
-    qmin = max(self.qmin(omega), q_IA_cut)
     qmax = self.qmax(omega)
 
     if qmin >= qmax:
-        impulse_approx_part = 0
+        return 0
+
+    qrange = np.linspace(qmin, qmax, npoints)
+
+    if dark_photon:
+        fd = np.array([self.fd_darkphoton[i](qrange) for i in range(len(self.atoms))])
     else:
-        npoints = 100
-        qrange = np.linspace(qmin, qmax, npoints)
+        fd = np.tile(self.Avec,(npoints, 1)).T
 
-        # Choice of effective coupling
-        if dark_photon:
-            fd = np.array([self.fd_darkphoton[i](qrange) for i in range(len(self.atoms))])
-        elif spin_dependent:
-            fd = np.tile(np.array(self.isotope_frac_vec), (npoints, 1)).T
-        else:
-            fd = np.tile(self.Avec, (npoints, 1)).T
+    formfactorsquared = self.Fmed_nucleus_SI(qrange)**2
 
-        if spin_dependent:
-            formfactorsquared = self.Fmed_nucleus_spin_dependent(qrange, scalar_dm)**2
-        else:
-            formfactorsquared = self.Fmed_nucleus(qrange)**2
+    S = 0
+    for d in range(len(self.atoms)):
+        # This is structure factor divided by (2 pi/ omega_c)
+        S += self.Amult[d] * fd[d]**2 * self.C_ld(qrange, omega, d)
 
-        # Width of gaussian
-        qtile = np.tile(qrange, (len(self.atoms), 1))
-        deltaq = sqrt(np.tile(self.omega_bar/(2*self.Avec*self.mp), (npoints, 1)).T)*qtile
+    # S = np.sum(list(map(lambda d: self.Amult[d] * fd[d]**2 * self.C_ld(qrange, omega, d), range(len(self.atoms)))), axis=0)
 
-        # This is structure factor divided by (2 pi/ Omega_c)
-        structurefactor = (1/(deltaq*sqrt(2*pi)))*exp(-(omega -
-                       qtile**2 * np.tile(1/(2*self.Avec*self.mp), (npoints, 1)).T )**2/(2*deltaq**2))
+    dR_domega_dq = S * qrange * formfactorsquared * self.etav((qrange/(2*self.mX)) + omega/qrange)
 
-        # Sum over all atoms with multiplicity factor
-        dR_domega_dq = np.sum( np.tile(self.Amult, (npoints, 1)).T * structurefactor * fd**2, axis=0) * \
-                     formfactorsquared*self.etav((qrange/(2*self.mX)) + omega/qrange) * qrange
+    dR_domega = np.trapz(dR_domega_dq, qrange)
 
-        impulse_approx_part = np.trapz(dR_domega_dq, qrange)
-
-    return self._R_multiphonons_prefactor(sigman, spin_dependent=spin_dependent, scalar_dm=scalar_dm, N_spin2=N_spin2)*(multiph_expansion_part + impulse_approx_part)
+    return self._R_multiphonons_prefactor_SI(sigman) * dR_domega
 
 
 ############################################################################################
 #
 # Single phonon coherent term
-
-# !TL: functions wanted:
-#      _dR_domega_coherent_single -- internal function used for plotting
-#      R_coherent_single_phonon -- total rate, obtained analytically
-
-def _dR_domega_coherent_single(self, omega, sigman=1e-38, dark_photon=False):
-#   internal function used for plotting, takes in single float values of omega
-#   Note! don't integrate over omega here as there are artificial sharp peaks
-    if(dark_photon): # check if effective charges are loaded
-        assert self.fd_loaded, "Error: effective charge not loaded. Cannot perform calculation for dark photon mediator."
-
-    if omega > self.omegaDMmax:
-        return 0
-
-    qmin = self.qmin(omega)
-    qmax = min(self.qmax(omega), self.qBZ)
-
-    if qmin > qmax:
-        return 0
-
-    # following stuff is doing the acoustic part analytically
-    if dark_photon:
-        fd = np.array([self.fd_darkphoton[i](omega/self.cLA) for i in range(len(self.atoms))])*sqrt(self.debye_waller(omega/self.cLA))
-    else:
-        fd = self.Avec
-
-    formfactorsquared = self.Fmed_nucleus(omega/self.cLA)**2
-
-    if (omega < 2*self.mX*self.cLA*(self.vmax - self.cLA)) and (omega < self.cLA*self.qBZ) and (omega < self.dos_omega_range[-1]):
-        # !TL: multiplicity of atoms added here in sum over fd, and in 1/(total mass)
-        acoustic_part = ((np.sum(fd*self.Amult)**2/np.sum(self.Amult*self.Avec))*(1/(2*self.mp))*((omega/self.cLA)**2/self.cLA**2)*
-                        formfactorsquared*
-                        self.etav((omega/self.cLA)/(2*self.mX) + omega/(omega/self.cLA)))
-    else:
-        acoustic_part = 0
-
-    #### Optical part is only included if we have two atoms in the unit cell;
-    ####   otherwise, we don't have a simple analytic expression
-
-    def dR_domega_dq_optical(q):
-
-        # This function only works if we have two atoms in the unit cell, so let's check the two
-        #   cases where that holds and assign the couplings appropriately.
-        if( list(self.Amult) == [2]):
-            Aoptical = np.array([self.Avec[0], self.Avec[0]])
-            if dark_photon:
-                fd = np.array([self.fd_darkphoton[0](q) for i in range(2)])*sqrt(self.debye_waller(q))
-            else:
-                fd = Aoptical*sqrt(self.debye_waller(q))
-        elif( list(self.Amult) == [1,1]):
-            Aoptical = self.Avec
-            if dark_photon:
-                fd = np.array([self.fd_darkphoton[i](q) for i in range(2)])*sqrt(self.debye_waller(q))
-            else:
-                fd = self.Avec*sqrt(self.debye_waller(q))
-        else:
-            return 0
-
-        if q > self.qBZ:
-            return 0
-        else:
-            pass
-
-        formfactorsquared = self.Fmed_nucleus(q)**2
-
-        width = 0.5e-3 # giving the delta functions finite width of 0.5 meV
-
-        optical_factor1 = ((self.lattice_spacing/self.eVtoA0)**2/(2*self.LOvec[0]*self.mp))
-        optical_factor2 = (fd[0]**2*Aoptical[1]/Aoptical[0] + fd[1]**2*Aoptical[0]/Aoptical[1] - 2*fd[0]*fd[1] +
-                                fd[0]*fd[1]*q**2/16)/(np.sum(Aoptical))
-        optical_part = q**3*optical_factor1*optical_factor2*(1/(width*sqrt(2*pi)))*exp(-(1/2)*(omega - self.LOvec[0])**2/(width)**2)
-        return formfactorsquared*self.etav(q/(2*self.mX) + omega/q)*(optical_part)
-
-    return self._R_multiphonons_prefactor(sigman)*(integrate.quad(lambda q: dR_domega_dq_optical(q),
-                    qmin, qmax)[0] + acoustic_part)
-
-
 
 def R_single_phonon(self, threshold, sigman=1e-38, dark_photon=False):
     return  (self._R_single_optical(threshold,sigman,dark_photon) + \
@@ -371,7 +212,7 @@ def _R_single_optical(self, threshold, sigman=1e-38, dark_photon=False):
 
     dR_dq_optical = np.zeros(npoints)
 
-    formfactorsquared = self.Fmed_nucleus(qrange)**2
+    formfactorsquared = self.Fmed_nucleus_SI(qrange)**2
 
 
     optical_factor1 = ((self.lattice_spacing/self.eVtoA0)**2/(2*self.LOvec[0]*self.mp))
@@ -386,7 +227,7 @@ def _R_single_optical(self, threshold, sigman=1e-38, dark_photon=False):
 
     optical_rate = np.trapz(dR_dq_optical, qrange)
 
-    return self._R_multiphonons_prefactor(sigman)*optical_rate
+    return self._R_multiphonons_prefactor_SI(sigman)*optical_rate
 
 
 def _R_single_acoustic(self, threshold, sigman=1e-38, dark_photon=False):
@@ -403,7 +244,7 @@ def _R_single_acoustic(self, threshold, sigman=1e-38, dark_photon=False):
     omegarange = np.linspace(omegamin, omegamax, npoints)
     dR_domega_acoustic = np.zeros(npoints)
 
-    formfactorsquared = self.Fmed_nucleus(omegarange/self.cLA)**2
+    formfactorsquared = self.Fmed_nucleus_SI(omegarange/self.cLA)**2
 
     # !TL - atom multiplicity added in fd definitions below
     if dark_photon:
@@ -417,7 +258,7 @@ def _R_single_acoustic(self, threshold, sigman=1e-38, dark_photon=False):
 
     acoustic_rate = np.trapz(dR_domega_acoustic, omegarange)
 
-    return self._R_multiphonons_prefactor(sigman)*acoustic_rate
+    return self._R_multiphonons_prefactor_SI(sigman)*acoustic_rate
 
 ###############################################################################################
 # Loading in dark photon fd

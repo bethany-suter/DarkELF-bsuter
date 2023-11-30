@@ -187,12 +187,19 @@ class darkelf(object):
 
     from .fnomega import Fn_integrand, Fn_vegas, load_phonon_dos, load_Fn
     from .fnomega import create_Fn_omega
+    from .fnomega import C_ld
 
     from .multiphonon import sigma_multiphonons, sigma_multiphonons_spin_dependent, R_multiphonons_no_single, R_single_phonon
-    from .multiphonon import _R_single_optical, _R_single_acoustic, _dR_domega_coherent_single
+    # from .multiphonon import _R_single_optical, _R_single_acoustic, _dR_domega_coherent_single
     from .multiphonon import _dR_domega_multiphonons_no_single, _R_multiphonons_prefactor
-    from .multiphonon import load_fd_darkphoton
-    from .multiphonon import debye_waller, _debye_waller_scalar
+    # from .multiphonon import load_fd_darkphoton
+    # from .multiphonon import debye_waller, _debye_waller_scalar
+
+    from .multiphonon_spin_independent import sigma_multiphonons_SI, R_multiphonons_no_single_SI, R_single_phonon
+    from .multiphonon_spin_independent import _R_single_optical, _R_single_acoustic
+    from .multiphonon_spin_independent import _dR_domega_multiphonons_no_single_SI, _R_multiphonons_prefactor_SI
+    from .multiphonon_spin_independent import load_fd_darkphoton
+    from .multiphonon_spin_independent import debye_waller, _debye_waller_scalar
 
     from .electron import R_electron, dRdomega_electron, dRdomegadk_electron
     from .electron import electron_yield, dRdQ_electron
@@ -301,12 +308,15 @@ class darkelf(object):
         return
 
 
+    def Fmed_nucleus_SI(self,q):
+        return (self.q0**2 + self.mMed**2)/(q**2 + self.mMed**2)
+
     def Fmed_nucleus(self,q):
         return (self.q0**2 + self.mMed**2)/(q**2 + self.mMed**2)
 
     def Fmed_electron(self,q):
         return ((self.alphaEM*self.me)**2 + self.mMed**2)/(q**2 + self.mMed**2)
-    
+
     def Fmed_nucleus_spin_dependent(self, q, scalar_dm = True):
         if scalar_dm: # this corresponds to scalar dark matter
             return np.abs(q)/self.q0 * (self.q0**2 + self.mMed**2)/(q**2 + self.mMed**2)
@@ -388,7 +398,7 @@ class darkelf(object):
 
     # Minimum and maximum allowed q values (TOTAL momentum transfer), given omega (energy deposited) and other DM params
     def qmin(self,omega):
-        if( omega + self.delta < self.omegaDMmax):
+        if (omega + self.delta < self.omegaDMmax):
             return self.mX*self.vmax - np.sqrt(self.mX**2*self.vmax**2 \
                 - 2 * (omega + self.delta) * self.mX)
         else:
